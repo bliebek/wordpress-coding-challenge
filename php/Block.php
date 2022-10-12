@@ -63,66 +63,37 @@ class Block {
 	 * @return string The markup of the block.
 	 */
 	public function render_callback( $attributes, $content, $block ) {
-		$post_types = get_post_types(  [ 'public' => true ] );
-		$class_name = $attributes['className'];
+		$post_id     = get_the_ID();
+		$post_types  = get_post_types( [ 'public' => true ], 'objects' );
+		$class_name  = isset( $attributes['className'] ) ? $attributes['className'] : '';
+		$post_counts = [];
+		foreach ( $post_types as $post_type ) {
+			$post_counts[ $post_type->labels->name ] = wp_count_posts( $post_type->name );
+		}
+
+		$foo_baz_posts = new WP_Query(
+			[
+				'post_type'     => [ 'post', 'page' ],
+				'post_status'   => 'any',
+				'date_query'    => [
+					[
+						'hour'    => 9,
+						'compare' => '>=',
+					],
+					[
+						'hour'    => 17,
+						'compare' => '<=',
+					],
+				],
+				'tag'           => 'foo',
+				'category_name' => 'baz',
+				'post__not_in'  => [ $post_id ],
+				'postperpage'   => 5,
+			]
+		);
+
 		ob_start();
-
-		?>
-        <div class="<?php echo $class_name; ?>">
-			<h2>Post Counts</h2>
-			<ul>
-			<?php
-			foreach ( $post_types as $post_type_slug ) :
-                $post_type_object = get_post_type_object( $post_type_slug  );
-                $post_count = count(
-                    get_posts(
-						[
-							'post_type' => $post_type_slug,
-							'posts_per_page' => -1,
-						]
-					)
-                );
-
-				?>
-				<li><?php echo 'There are ' . $post_count . ' ' .
-					  $post_type_object->labels->name . '.'; ?></li>
-			<?php endforeach;	?>
-			</ul><p><?php echo 'The current post ID is ' . $_GET['post_id'] . '.'; ?></p>
-
-			<?php
-			$query = new WP_Query(  array(
-				'post_type' => ['post', 'page'],
-				'post_status' => 'any',
-				'date_query' => array(
-					array(
-						'hour'      => 9,
-						'compare'   => '>=',
-					),
-					array(
-						'hour' => 17,
-						'compare'=> '<=',
-					),
-				),
-                'tag'  => 'foo',
-                'category_name'  => 'baz',
-				  'post__not_in' => [ get_the_ID() ],
-			));
-
-			if ( $query->have_posts() ) :
-				?>
-				 <h2>5 posts with the tag of foo and the category of baz</h2>
-                <ul>
-                <?php
-
-                 foreach ( array_slice( $query->posts, 0, 5 ) as $post ) :
-                    ?><li><?php echo $post->post_title ?></li><?php
-				endforeach;
-			endif;
-		 	?>
-			</ul>
-		</div>
-		<?php
-
+		require $this->plugin->dir() . '/template.php';
 		return ob_get_clean();
 	}
 }
